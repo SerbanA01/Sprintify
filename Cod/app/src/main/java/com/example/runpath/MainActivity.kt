@@ -87,7 +87,7 @@ class MainActivity : AppCompatActivity() /*, OnMapReadyCallback*/ {
                 }
                 //pentru cazul in care userul este deja logat in cont
                 else {
-                    NavHost(navController, startDestination = "mainInterface")
+                    NavHost(navController, startDestination = "HomePage")
                     {
                         composable("homePage") {
                             HomePage(dbHelper, navController)

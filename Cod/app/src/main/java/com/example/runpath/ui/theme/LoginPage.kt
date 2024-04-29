@@ -15,6 +15,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.runpath.database.DataBase.UserEntry
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,7 +31,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.runpath.database.DataBase
 import com.example.runpath.database.SessionManager
+
 import com.example.runpath.database.UserDAO
 
 
@@ -124,9 +127,24 @@ fun LoginPage(navController: NavController, dbHelper: FeedReaderDbHelper) {
                     val userId = userDAO.login(username, password)
                     if (userId != -1) {
                         //daca loginul este reusit, se creeaza o sesiune
-                        val user = userDAO.getUserById(userId)
-                        println(user)
-                        sessionManager.createSession(userId, user.username, user.email, user.dateCreated)
+                        val cursor = userDAO.getUserById(userId)
+
+                        if (cursor.moveToFirst()) {
+                            val usernameIndex = cursor.getColumnIndexOrThrow(UserEntry.COLUMN_USERNAME)
+                            val emailIndex = cursor.getColumnIndexOrThrow(UserEntry.COLUMN_EMAIL)
+                            val dateCreatedIndex = cursor.getColumnIndexOrThrow(UserEntry.COLUMN_DATE_CREATED)
+                            val username = cursor.getString(usernameIndex)
+                            val email = cursor.getString(emailIndex)
+                            val dateCreated = cursor.getString(dateCreatedIndex)
+
+                            println("User: $username, Email: $email, Date Created: $dateCreated")
+
+                            sessionManager.createSession(userId, username, email, dateCreated)
+                        } else {
+                            println("No user found with the provided userId")
+                        }
+
+                        cursor.close()
                         navController.navigate("mainInterface")
                     } else {
                         showErrorDialog = true
