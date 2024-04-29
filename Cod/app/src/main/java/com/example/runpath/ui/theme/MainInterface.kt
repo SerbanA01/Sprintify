@@ -1,5 +1,6 @@
 package com.example.runpath.ui.theme
 
+import FeedReaderDbHelper
 import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Location
@@ -44,7 +45,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import com.google.android.gms.location.LocationRequest
-
+import ProfilePage
+import com.example.runpath.database.SessionManager
 
 
 sealed class BottomNavItem(val route: String, val icon: ImageVector, val label: String) {
@@ -53,7 +55,7 @@ sealed class BottomNavItem(val route: String, val icon: ImageVector, val label: 
 
     data object Run : BottomNavItem("run", Icons.Default.Add, "Run")
     data object Circuit : BottomNavItem("circuit", Icons.Default.LocationOn, "Circuit")
-    data object Profile : BottomNavItem("profile", Icons.Default.AccountBox, "Profile")
+    data object Profile : BottomNavItem("profilePage", Icons.Default.AccountBox, "Profile")
     companion object {
         val values = listOf(Home, Community, Run, Circuit, Profile)
     }
@@ -86,7 +88,7 @@ fun BottomNavigationBar(navController: NavController) {
 }
 
 @Composable
-fun NavigationHost(navController: NavHostController) {
+fun NavigationHost(navController: NavHostController, sessionManager: SessionManager) {
     NavHost(navController, startDestination = BottomNavItem.Home.route) {
         composable(BottomNavItem.Home.route) {
             MainInterface()
@@ -94,9 +96,10 @@ fun NavigationHost(navController: NavHostController) {
         composable(BottomNavItem.Community.route) { /* Community Screen UI */ }
         composable(BottomNavItem.Run.route) { /* Run Screen UI */ }
         composable(BottomNavItem.Circuit.route) { /* Search Screen UI */ }
-        composable(BottomNavItem.Profile.route) { /* Profile Screen UI */ }
+        composable(BottomNavItem.Profile.route) { ProfilePage(navController, sessionManager) }
+        }
     }
-}
+
 
 
 fun savePermissionStatus(context: Context, isGranted: Boolean) {

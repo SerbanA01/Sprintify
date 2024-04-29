@@ -10,12 +10,22 @@ class SessionManager(context: Context) {
     companion object {
         const val KEY_USER_ID = "user_id"
         const val KEY_IS_LOGGED_IN = "is_logged_in"
+        const val KEY_USERNAME = "username"
+        const val KEY_EMAIL = "email"
+        const val KEY_DATE_CREATED = "date_created"
     }
 
-    fun createSession(userId: Int) {
+    fun getsharedPreferences(): SharedPreferences {
+        return sharedPreferences
+    }
+
+    fun createSession(userId: Int, username: String, email: String, dateCreated: String) {
         with(sharedPreferences.edit()) {
             putInt(KEY_USER_ID, userId)
             putBoolean(KEY_IS_LOGGED_IN, true)
+            putString(KEY_USERNAME, username)
+            putString(KEY_EMAIL, email)
+            putString(KEY_DATE_CREATED, dateCreated)
             apply()
         }
     }
@@ -23,6 +33,19 @@ class SessionManager(context: Context) {
     fun isLoggedIn(): Boolean {
         return sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false)
     }
+
+    fun getUsername(): String? {
+        return sharedPreferences.getString(KEY_USERNAME, null)
+    }
+
+    fun getEmail(): String? {
+        return sharedPreferences.getString(KEY_EMAIL, null)
+    }
+
+    fun getDateCreated(): String? {
+        return sharedPreferences.getString(KEY_DATE_CREATED, null)
+    }
+
 
     fun clearSession() {
         with(sharedPreferences.edit()) {

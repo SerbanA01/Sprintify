@@ -124,7 +124,9 @@ fun LoginPage(navController: NavController, dbHelper: FeedReaderDbHelper) {
                     val userId = userDAO.login(username, password)
                     if (userId != -1) {
                         //daca loginul este reusit, se creeaza o sesiune
-                        sessionManager.createSession(userId)
+                        val user = userDAO.getUserById(userId)
+                        println(user)
+                        sessionManager.createSession(userId, user.username, user.email, user.dateCreated)
                         navController.navigate("mainInterface")
                     } else {
                         showErrorDialog = true
