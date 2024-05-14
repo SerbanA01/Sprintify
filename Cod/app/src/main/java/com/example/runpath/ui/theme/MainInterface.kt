@@ -1,6 +1,7 @@
 package com.example.runpath.ui.theme
 
-//import ProfilePage
+import HomePage
+import ProfilePage
 import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Address
@@ -35,11 +36,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.navigation.NavController
@@ -54,7 +54,7 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.maps.GoogleMap
+import com.google.maps.android.compose.Polyline
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.PolylineOptions
@@ -64,91 +64,26 @@ import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
+import com.google.maps.DirectionsApi
+import com.google.maps.GeoApiContext
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.flowOn
+import com.google.maps.model.DirectionsResult
+import com.google.maps.model.TravelMode
 
 sealed class BottomNavItem(val route: String, val icon: ImageVector, val label: String) {
-    data object Home : BottomNavItem("home", Icons.Default.Home, "Home")
+    data object Map : BottomNavItem("mapPage", Icons.Default.Home, "Map")
     data object Community : BottomNavItem("home", Icons.Default.Star, "Community")
 
     data object Run : BottomNavItem("run", Icons.Default.Add, "Run")
     data object Circuit : BottomNavItem("circuit", Icons.Default.LocationOn, "Circuit")
     data object Profile : BottomNavItem("ProfilePage", Icons.Default.AccountBox, "Profile")
     companion object {
-        val values = listOf(Home, Community, Run, Circuit, Profile)
+        val values = listOf(Map, Community, Run, Circuit, Profile)
     }
 }
-
-
-fun drawLineOnMap(googleMap: GoogleMap, start: LatLng, end: LatLng) {
-    val polylineOptions = PolylineOptions()
-        .add(start)
-        .add(end)
-        .width(5f)
-        .color(android.graphics.Color.BLUE)
-
-    googleMap.addPolyline(polylineOptions)
-}
-
-
-@Composable
-fun LocationTracker(googleMap: GoogleMap) {
-    val context = LocalContext.current
-    var lastLocation by remember { mutableStateOf<LatLng?>(null)}
-    val locationClient = LocationServices.getFusedLocationProviderClient(context)
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) {permissions ->
-        if(permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true &&
-            permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true ) {
-            startLocationUpdates(locationClient, lastLocation) {
-                newLocation ->
-                lastLocation?.let {
-                    drawLineOnMap(googleMap, it, newLocation)
-                }
-                lastLocation = newLocation
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        permissionLauncher.launch(arrayOf(
-            android.Manifest.permission.ACCESS_FINE_LOCATION,
-            android.Manifest.permission.ACCESS_COARSE_LOCATION
-        ))
-    }
-}
-
-
-@SuppressLint("MissingPermission")
-fun startLocationUpdates(locationClient: FusedLocationProviderClient, lastLocation: LatLng?, callback: (LatLng) -> Unit) {
-    val locationRequest = LocationRequest.create().apply {
-        interval = 10000    // 10 sec
-        fastestInterval = 5000  //5 sec
-        priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-    }
-
-    val locationCallback = object: LocationCallback() {
-        override fun onLocationResult(locationResult: LocationResult) {
-            locationResult.locations.lastOrNull()?.let {
-                val newLocation = LatLng(it.latitude, it.longitude)
-                callback(newLocation)
-            }
-        }
-    }
-
-    locationClient.requestLocationUpdates(locationRequest, locationCallback, null)
-}
-
 
 
 @Composable
@@ -175,21 +110,6 @@ fun BottomNavigationBar(navController: NavController) {
                 label = { Text(item.label) }
             )
         }
-    }
-}
-
-@Composable
-fun NavigationHost(navController: NavHostController) {
-
-    var sessionManager = SessionManager(context = LocalContext.current)
-    NavHost(navController, startDestination = BottomNavItem.Home.route) {
-        composable(BottomNavItem.Home.route) {
-            MainInterface()
-        }
-        composable(BottomNavItem.Community.route) { /* Community Screen UI */ }
-        composable(BottomNavItem.Run.route) { /* Run Screen UI */ }
-        composable(BottomNavItem.Circuit.route) { /* Search Screen UI */ }
-        //composable(BottomNavItem.Profile.route) { ProfilePage(navController,sessionManager ) }
     }
 }
 
@@ -269,6 +189,37 @@ fun getCurrentLocation(
 }
 
 
+// Code for live tracking
+@SuppressLint("MissingPermission")
+fun getCurrentLocationAndTrack(
+    fusedLocationClient: FusedLocationProviderClient,
+    locationPoints: SnapshotStateList<LatLng>
+) {
+    val locationRequest = LocationRequest.create().apply {
+        interval = 10000
+        fastestInterval = 5000
+        priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+    }
+
+    val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(locationResult: LocationResult) {
+            val locationList = locationResult.locations
+            if(locationList.isNotEmpty()) {
+                val newLocation = locationList.last()
+                val newLatLng = LatLng(newLocation.latitude, newLocation.longitude)
+                locationPoints += newLatLng
+            }
+        }
+    }
+
+    fusedLocationClient.requestLocationUpdates(
+        locationRequest,
+        locationCallback,
+        Looper.getMainLooper()
+    )
+}
+
+
 @Composable
 fun placeMarkerOnMap(location: LatLng, title: String) {
     Marker(
@@ -281,12 +232,9 @@ fun placeMarkerOnMap(location: LatLng, title: String) {
 @Composable
 fun GMap(
     currentLocation: MutableState<LatLng?>,
-    searchedLocation: MutableState<LatLng?>
+    searchedLocation: MutableState<LatLng?>,
+    locationPoints: SnapshotStateList<LatLng>
 ) {
-
-    val mapLoaded = remember { mutableStateOf(false)}
-    val googleMap = remember { mutableStateOf<GoogleMap?>(null) }
-    //val googleMapController = remember { mutableStateOf<MapController?>(null) }
 
     val cameraPositionState = rememberCameraPositionState().apply {
         val initialLocation: LatLng = if(searchedLocation.value == null) {
@@ -306,84 +254,36 @@ fun GMap(
             placeMarkerOnMap(location = currentLocation.value!! , title = "Current Location")
         }
 
-
-        if(mapLoaded.value) {
-            //cameraPositionState.map?.let { LocationTracker(it) }
-        }
-
 //        // Marker for searched location
 //        searchedLocation.value?.let {
 //            placeMarkerOnMap(location = searchedLocation.value!!, title = "Searched Location")
 //        }
+//
+//        if (currentLocation.value != null && searchedLocation.value != null) {
+//            Polyline(
+//                points = listOf(currentLocation.value!!, searchedLocation.value!!),
+//                color = Color.Red,
+//                width = 5f
+//            )
+//        }
+
+        if (locationPoints.isNotEmpty()) {
+            Polyline(
+                points = locationPoints,
+                color = Color.Red,
+                width = 5f
+            )
+        }
+
+        locationPoints.forEach {
+            Marker(
+                state = MarkerState(position = it),
+                title = "Visited"
+            )
+        }
+
     }
 }
-
-
-@SuppressLint("MissingPermission")
-fun getLocationFlow(context: Context): Flow<LatLng> = channelFlow {
-    val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-
-    val locationCallback = object : LocationCallback() {
-        fun onLocationResult(locationResult: LocationResult?) {
-            locationResult ?: return
-            for (location in locationResult.locations) {
-                // Emit the new location as a LatLng object
-                trySend(LatLng(location.latitude, location.longitude))
-            }
-        }
-    }
-
-    val locationRequest = LocationRequest.create().apply {
-        interval = 2000  // Update interval in milliseconds
-        fastestInterval = 1000  // Fastest update interval
-        priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-    }
-
-    // Request location updates
-    fusedLocationClient.requestLocationUpdates(
-        locationRequest,
-        locationCallback,
-        Looper.getMainLooper()
-    ).addOnFailureListener { e ->
-        close(e)  // Close the flow with an exception if location updates can't be started
-    }
-
-    // Await close suspends the coroutine until this Flow is no longer needed
-    awaitClose {
-        fusedLocationClient.removeLocationUpdates(locationCallback)
-    }
-}.flowOn(Dispatchers.IO)
-
-
-@Composable
-fun MapWithLocationFlow(context: Context) {
-    val locationFlow = remember { getLocationFlow(context) }
-    val polylinePoints = remember { mutableStateListOf<LatLng>() }
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(LatLng(0.0, 0.0), 15f) // Initial position
-    }
-
-    // Collecting location updates
-    LaunchedEffect(key1 = Unit) {
-        locationFlow.collect { newLocation ->
-            // Update polyline with the new location
-            polylinePoints.add(newLocation)
-
-            // Update camera position to center on new location
-            cameraPositionState.position = CameraPosition.fromLatLngZoom(newLocation, 15f)
-        }
-    }
-
-    GoogleMap(
-        modifier = Modifier.fillMaxSize(),
-        cameraPositionState = cameraPositionState
-    ) {
-        Polyline(points = polylinePoints)
-    }
-}
-
-
-
 @Composable
 fun LocationSearchBar(
     placesClient: PlacesClient,
@@ -463,79 +363,87 @@ fun LocationSearchBar(
     }
 }
 
-
-
-
-
-@SuppressLint("UnusedMaterialScaffoldPaddingParameter")
 @Composable
-fun MainInterface() {
+fun MapScreen(
+    currentLocation: MutableState<LatLng?>,
+    searchedLocation: MutableState<LatLng?>
+) {
     val context = LocalContext.current
-    val navController = rememberNavController()
-    val currentLocation = remember { mutableStateOf<LatLng?>(null) }
-    val searchedLocation = remember { mutableStateOf<LatLng?>(null) }
+    val contextMap = GeoApiContext.Builder()
+        .apiKey("AIzaSyBcDs0jQqyNyk9d1gSpk0ruLgvbd9pwZrU")
+        .build()
     val apiKey = "AIzaSyBcDs0jQqyNyk9d1gSpk0ruLgvbd9pwZrU"
     Places.initialize(context, apiKey)
     val placesClient = Places.createClient(context)
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
+    val locationPoints = remember {mutableStateListOf<LatLng>()}
 
     RequestLocationPermission(
         onPermissionGranted = {
-            //the dubbger reaches this point
             getCurrentLocation(fusedLocationClient) { location ->
                 val latLng = LatLng(location.latitude, location.longitude)
                 currentLocation.value = latLng
                 if (searchedLocation.value == null) {
                     searchedLocation.value = latLng // Set default camera position
                 }
+
+                getCurrentLocationAndTrack(fusedLocationClient, locationPoints)
             }
         },
         onPermissionDenied = {
-            // Handle permission denial logic, e.g., show a message to the user
             println("Permission denied")
         }
     )
-    println("currentLocation: ${currentLocation.value}")
-    Scaffold(
-        bottomBar = { BottomNavigationBar(navController) }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // Search bar for updating the searched location
-            LocationSearchBar(
-                placesClient = placesClient,
-                searchedLocation = searchedLocation
-            )
 
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        // Search bar for updating the searched location
+        LocationSearchBar(
+            placesClient = placesClient,
+            searchedLocation = searchedLocation
+        )
 
-            // Display map with current and searched locations
-//            GMap(
-//                currentLocation = currentLocation,
-//                searchedLocation = searchedLocation
-//            )
+        // Display map with current and searched locations
+        val map = GMap(
+            currentLocation = currentLocation,
+            searchedLocation = searchedLocation,
+            locationPoints = locationPoints
+        )
 
-            MapWithLocationFlow(context)
-
-//            searchedLocation.value?.let {
-//                Button(onClick = {
-//                    val intent = Intent(context, MapsActivity::class.java).apply {
-//                        putExtra("currentLocation", currentLocation.value)
-//                        putExtra("searchedLocation", searchedLocation.value)
-//                    }
-//                    context.startActivity(intent)
-//                }) {
-//                    Text("Show Route")
-//                }
-//            }
-
-            NavigationHost(navController = navController )
-        }
     }
-
 }
 
+@Composable
+fun NavigationHost(navController: NavHostController) {
+    val context = LocalContext.current
+    var sessionManager = SessionManager(context)
+    val currentLocation = remember { mutableStateOf<LatLng?>(null) }
+    val searchedLocation = remember { mutableStateOf<LatLng?>(null) }
 
+    //val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+
+    NavHost(navController, startDestination = BottomNavItem.Map.route) {
+        composable(BottomNavItem.Map.route) {
+            MapScreen(currentLocation, searchedLocation)
+        }
+        composable(BottomNavItem.Community.route) { /* Community Screen UI */ }
+        composable(BottomNavItem.Run.route) { /* Run Screen UI */ }
+        composable(BottomNavItem.Circuit.route) { /* Search Screen UI */ }
+        composable(BottomNavItem.Profile.route) { ProfilePage(navController,sessionManager ) }
+    }
+}
+
+@SuppressLint("UnusedMaterialScaffoldPaddingParameter")
+@Composable
+fun MainInterface() {
+    val navController = rememberNavController()
+
+    Scaffold(
+        bottomBar = { BottomNavigationBar(navController) }
+    ) {  paddingValues ->
+        NavigationHost(navController = navController )
+    }
+}
