@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "799735376074",
+    "project_id": "sprintify-aa959",
+    "storage_bucket": "sprintify-aa959.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:799735376074:android:1aea3344351723e08d2c33",
+        "android_client_info": {
+          "package_name": "com.example.runpath"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDL77lUu2-qWaFlq2NWk9ItYku0NYNkz6E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
