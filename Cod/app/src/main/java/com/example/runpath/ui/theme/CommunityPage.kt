@@ -16,16 +16,33 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import com.example.runpath.database.PostDAO
 import com.example.runpath.database.SessionManager
+import com.example.runpath.models.Post
+
 
 @Composable
 fun CommunityPage(navController: NavController, sessionManager: SessionManager) {
     val sharedPreferences = sessionManager.getsharedPreferences()
     var text by remember { mutableStateOf("Community") }
     val username = sharedPreferences.getString("username", "N/A") ?: "N/A"
-    var posts by remember { mutableStateOf(listOf<Post>()) } // o sa adaugam in baza de date postul
+    val userId = sharedPreferences.getInt("user_id", -1)
+    var posts by remember { mutableStateOf(listOf<Post>()) }
     var showDialog by remember { mutableStateOf(false) }
     var newPostContent by remember { mutableStateOf("") }
+
+    val postDAO = PostDAO()
+
+    // Set up real-time listener for posts
+    DisposableEffect(Unit) {
+        val listenerRegistration = postDAO.listenForPosts { updatedPosts ->
+            posts = updatedPosts
+        }
+
+        onDispose {
+            listenerRegistration.remove()
+        }
+    }
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -37,42 +54,37 @@ fun CommunityPage(navController: NavController, sessionManager: SessionManager) 
             modifier = Modifier.padding(16.dp)
         )
 
-        // feed-ul de posturi
+        // Posts feed
         LazyColumn(
             modifier = Modifier
-                .padding(top=58.dp)
+                .padding(top = 58.dp)
         ) {
             itemsIndexed(posts) { index, post ->
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(text = "${post.author}: ${post.content} at ${post.timestamp}")
-
-                    // momentan o sa adaug ceva care doar nu afiseaza indexul postarii cand i se da delete
-                    if (post.author == username) {
-                        IconButton(
-                            onClick = {
-                                posts = posts.filterIndexed { i, _ -> i != index }
-                            }
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = "Delete Post")
-                        }
+                    IconButton(onClick = { post.postId?.let { postDAO.deletePost(it) } }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Delete Post")
                     }
                 }
             }
         }
-        // butonul de creare a unui post
+
+        // Button to create a new post
         Button(
             onClick = { showDialog = true },
             modifier = Modifier
-                .padding(bottom=58.dp, end=8.dp)
+                .padding(bottom = 58.dp, end = 8.dp)
                 .align(Alignment.BottomEnd)
         ) {
             Text("Create Post")
         }
 
-        // dialogul de creare a unui post daca butonul este apasat
+        // Dialog to create a new post
         if (showDialog) {
             Dialog(onDismissRequest = { showDialog = false }) {
                 Column(
@@ -90,17 +102,20 @@ fun CommunityPage(navController: NavController, sessionManager: SessionManager) 
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    //momentan ce e aici e un mockup
+
                     Button(
                         onClick = {
                             val post = Post(
+                                userId = userId,
                                 author = username,
                                 content = newPostContent,
                                 timestamp = LocalDateTime.now().toString()
                             )
-                            posts = posts + post
-                            newPostContent = ""
-                            showDialog = false
+                            postDAO.insertPost(post) {
+                                // Do not manually update the posts list here
+                                newPostContent = ""
+                                showDialog = false
+                            }
                         }
                     ) {
                         Text("Create Post")
@@ -109,13 +124,4 @@ fun CommunityPage(navController: NavController, sessionManager: SessionManager) 
             }
         }
     }
-}
-
-
-//creem o clasa temporara pentru posturi ca sa vad daca merge
-class Post(author: String, content: String, timestamp: String) {
-    var author: String by mutableStateOf(author)
-    var content: String by mutableStateOf(content)
-    var timestamp: String by mutableStateOf(timestamp)
-
 }

@@ -1,4 +1,4 @@
-package com.example.runpath.models
+package com.example.runpath.models;
 
 data class Circuit (
     val circuitId: Int,
