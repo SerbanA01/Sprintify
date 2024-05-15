@@ -67,9 +67,18 @@ fun CommunityPage(navController: NavController, sessionManager: SessionManager) 
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(text = "${post.author}: ${post.content} at ${post.timestamp}")
-                    IconButton(onClick = { post.postId?.let { postDAO.deletePost(it) } }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Delete Post")
+
+
+
+                    if (post.author == username) {
+                        IconButton(onClick = {
+                            post.postId?.let { postDAO.deletePost(it) }
+                        }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Delete Post")
+                        }
                     }
+
+
                 }
             }
         }
@@ -112,7 +121,6 @@ fun CommunityPage(navController: NavController, sessionManager: SessionManager) 
                                 timestamp = LocalDateTime.now().toString()
                             )
                             postDAO.insertPost(post) {
-                                // Do not manually update the posts list here
                                 newPostContent = ""
                                 showDialog = false
                             }
