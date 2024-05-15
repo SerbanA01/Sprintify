@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import com.example.runpath.database.PostDAO
 import com.example.runpath.database.SessionManager
 import com.example.runpath.models.Post
@@ -71,11 +72,15 @@ fun CommunityPage(navController: NavController, sessionManager: SessionManager) 
 
 
                     if (post.author == username) {
+                        //update post button
+
+                        //delete post button
                         IconButton(onClick = {
                             post.postId?.let { postDAO.deletePost(it) }
                         }) {
                             Icon(Icons.Filled.Close, contentDescription = "Delete Post")
                         }
+
                     }
 
 
