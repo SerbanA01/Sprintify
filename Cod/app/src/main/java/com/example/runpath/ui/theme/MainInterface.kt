@@ -179,7 +179,7 @@ fun getCurrentLocation(
                         onLocationReceived(it)
                         fusedLocationClient.removeLocationUpdates(this) // Remove updates after receiving location
                     }
-                }
+                }test
             }
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
         }
