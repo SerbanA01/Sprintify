@@ -246,7 +246,7 @@ fun RunControlButton(
                 val lastSegment = segments.last()
                 if (lastSegment.color != currentColor) {
                     val tempSegments = segments.toMutableList()
-                    tempSegments.add(Segment(locationPoints.size - 2, currentColor))
+                    tempSegments.add(Segment(locationPoints.size - 1, currentColor))
                     segments.clear()
                     segments.addAll(tempSegments)
                 }
@@ -311,7 +311,7 @@ fun getCurrentLocationAndTrack(
                     val currentColor = if (isRunActive.value) Color.Red else Color.Blue
 
                     if (lastSegment.color != currentColor) {
-                        segments.add(Segment(locationPoints.size - 2, currentColor))
+                        segments.add(Segment(locationPoints.size - 1, currentColor))
                     }
                 }
             }
