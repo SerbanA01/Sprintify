@@ -218,7 +218,7 @@ fun getCurrentLocation(
 // special data class for memorizing the polyline segments
 data class PolylineSegment(var points: List<LatLng>, val color: Color, val id: Int)
 
-data class Segment(val startIndex: Int, val color: Color)
+data class Segment(val startIndex: Int, val endIndex: Int, val color: Color)
 
 @Composable
 fun placeMarker(location: LatLng, title: String) {
@@ -245,13 +245,11 @@ fun RunControlButton(
             if (segments.isNotEmpty()) {
                 val lastSegment = segments.last()
                 if (lastSegment.color != currentColor) {
-                    val tempSegments = segments.toMutableList()
-                    tempSegments.add(Segment(locationPoints.size - 1, currentColor))
-                    segments.clear()
-                    segments.addAll(tempSegments)
+                    segments.add(Segment(lastSegment.endIndex,locationPoints.size - 1, currentColor))
+
                 }
             } else {
-                segments.add(Segment(0, currentColor))
+                segments.add(Segment(0, locationPoints.size - 1, currentColor))
             }
 
             onButtonClick()
@@ -304,15 +302,18 @@ fun getCurrentLocationAndTrack(
                 locationPoints.addAll(interpolatedPoints)
                 locationPoints.add(newLatLng)
 
-                if (segments.isEmpty()) {
-                    segments.add(Segment(0, Color.Red))
-                } else {
+                if(segments.isNotEmpty()) {
                     val lastSegment = segments.last()
-                    val currentColor = if (isRunActive.value) Color.Red else Color.Blue
-
-                    if (lastSegment.color != currentColor) {
-                        segments.add(Segment(locationPoints.size - 1, currentColor))
+                    if(isRunActive.value && lastSegment.color == Color.Blue) {
+                        segments.add(Segment(lastSegment.endIndex, locationPoints.size - 1, Color.Red))
+                    } else if(!isRunActive.value && lastSegment.color == Color.Red) {
+                        segments.add(Segment(lastSegment.endIndex, locationPoints.size - 1, Color.Blue))
+                    } else {
+                        segments[segments.lastIndex] = lastSegment.copy(endIndex = locationPoints.size - 1)
                     }
+                } else {
+                    val initialColor = if(isRunActive.value) Color.Red else Color.Blue
+                    segments.add(Segment(0, locationPoints.size - 1, initialColor))
                 }
             }
         }
@@ -398,16 +399,12 @@ fun GMap(
             placeMarkerOnMap(location = searchedLocation.value!!, title = "Searched Location")
         }
 
-        segments.forEachIndexed { index, segment ->
-            val endIndex =
-                if (index < segments.size - 1) segments[index + 1].startIndex else locationPoints.size
-            if(index > 0) {
-                Polyline(
-                    points = listOf(locationPoints[segments[index - 1].startIndex]) + locationPoints.subList(segment.startIndex, endIndex),
-                    color = segment.color,
-                    width = 5f
-                )
-            }
+        segments.forEach {segment ->
+            Polyline(
+                points = locationPoints.subList(segment.startIndex, segment.endIndex + 1),
+                color = segment.color,
+                width = 5f
+            )
         }
 
 //        locationPoints.forEach {
