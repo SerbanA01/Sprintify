@@ -334,7 +334,7 @@ fun getCurrentLocationAndTrack(
                     val currentColor = if (isRunActive.value) Color.Red else Color.Blue
 
                     if (lastSegment.color != currentColor) {
-                        tempSegments.add(Segment(locationPoints.size - 1, currentColor))
+                        tempSegments.add(Segment(locationPoints.size - 2, currentColor))
                     }
                 }
 
