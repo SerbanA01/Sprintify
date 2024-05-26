@@ -221,12 +221,11 @@ data class PolylineSegment(var points: List<LatLng>, val color: Color, val id: I
 data class Segment(val startIndex: Int, val color: Color)
 
 @Composable
-fun placeMarker(location: LatLng, title: String, icon: BitmapDescriptor) {
+fun placeMarker(location: LatLng, title: String) {
     Marker(
         state = MarkerState(position = location),
         title = title,
-        snippet = "Marker at $title",
-        icon = icon
+        snippet = "Marker at $title"
     )
 }
 
@@ -403,8 +402,7 @@ fun GMap(
 
     val context = LocalContext.current
     val drawable: Drawable = context.resources.getDrawable(R.drawable.current_location_icon)
-    val bitmap: Bitmap = (drawable as BitmapDrawable).bitmap
-    val currentLocationIcon: BitmapDescriptor = BitmapDescriptorFactory.fromBitmap(bitmap)
+
 
 
     GoogleMap(
@@ -418,7 +416,7 @@ fun GMap(
     ) {
         // Marker for current location
         currentLocation.value?.let {
-            placeMarker(location = it, title = "Current Location", icon = currentLocationIcon)
+            placeMarker(location = it, title = "Current Location")
         }
 
         // Marker for searched location
