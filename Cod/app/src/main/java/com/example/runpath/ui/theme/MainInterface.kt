@@ -246,7 +246,7 @@ fun RunControlButton(
                 val lastSegment = segments.last()
                 if (lastSegment.color != currentColor) {
                     val tempSegments = segments.toMutableList()
-                    tempSegments.add(Segment(locationPoints.size - 1, currentColor))
+                    tempSegments.add(Segment(locationPoints.size - 2, currentColor))
                     segments.clear()
                     segments.addAll(tempSegments)
                 }
@@ -303,43 +303,17 @@ fun getCurrentLocationAndTrack(
                 }
                 locationPoints.addAll(interpolatedPoints)
                 locationPoints.add(newLatLng)
-                //Log.d("LocationUpdate", "Updated points list: ${formatLatLngList(locationSegments)}")
 
-//                if(locationPoints.size == 1 || isRunActive.value && segments.isEmpty()) {
-//                    segments.add(Segment(0, Color.Red))
-//                } else if(!isRunActive.value && segments.last().color == Color.Red) {
-//                    segments.add(Segment(locationPoints.size - 1, Color.Blue))
-//                } else if(isRunActive.value && segments.last().color == Color.Blue) {
-//                    segments.add(Segment(locationPoints.size - 1, Color.Red))
-//                }
-
-                val tempSegments = segments.toMutableList();
-
-//                if(segments.isEmpty()) {
-//                    segments.add(Segment(0, Color.Red))
-//                } else {
-//                    val lastSegment = segments.last()
-//                    val currentColor = if(isRunActive.value) Color.Red else Color.Blue
-//
-//                    if(lastSegment.color != currentColor) {
-//                        segments.add(Segment(locationPoints.size - 1, currentColor))
-//                    }
-//                }
-
-                if (tempSegments.isEmpty()) {
-                    tempSegments.add(Segment(0, Color.Red))
+                if (segments.isEmpty()) {
+                    segments.add(Segment(0, Color.Red))
                 } else {
-                    val lastSegment = tempSegments.last()
+                    val lastSegment = segments.last()
                     val currentColor = if (isRunActive.value) Color.Red else Color.Blue
 
                     if (lastSegment.color != currentColor) {
-                        tempSegments.add(Segment(locationPoints.size - 2, currentColor))
+                        segments.add(Segment(locationPoints.size - 2, currentColor))
                     }
                 }
-
-                // Update segments
-                segments.clear()
-                segments.addAll(tempSegments)
             }
         }
     }
@@ -427,11 +401,13 @@ fun GMap(
         segments.forEachIndexed { index, segment ->
             val endIndex =
                 if (index < segments.size - 1) segments[index + 1].startIndex else locationPoints.size
-            Polyline(
-                points = locationPoints.subList(segment.startIndex, endIndex),
-                color = segment.color,
-                width = 5f
-            )
+            if(index > 0) {
+                Polyline(
+                    points = listOf(locationPoints[segments[index - 1].startIndex]) + locationPoints.subList(segment.startIndex, endIndex),
+                    color = segment.color,
+                    width = 5f
+                )
+            }
         }
 
 //        locationPoints.forEach {
