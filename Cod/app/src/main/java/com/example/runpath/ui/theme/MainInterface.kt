@@ -348,9 +348,6 @@ fun getCurrentLocationAndTrack(
     steps: Int = 5
 ) {
     val locationRequest = LocationRequest.create().apply {
-        // Setting the min and max intervals at witch the application retrieves the
-        // current location of the user
-        // max set to 5s and min set to 2s
         interval = 3000
         fastestInterval = 1000
         priority = LocationRequest.PRIORITY_HIGH_ACCURACY
