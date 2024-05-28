@@ -309,7 +309,7 @@ fun RunControlButton(
                 .padding(4.dp) // Add padding for better visual effect
         )
         Text(
-            text = "${"%.2f".format(totalDistance)} km",
+            text = "${"%.3f".format(totalDistance)} km",
             modifier = Modifier
                 .background(Color.LightGray) // Add background
                 .border(2.dp, Color.Black) // Add border
