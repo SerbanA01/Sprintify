@@ -1,26 +1,21 @@
 package com.example.runpath.ui.theme
 
 import CircuitsPage
-import com.example.runpath.ui.theme.ProfilePage
-
 import android.annotation.SuppressLint
 import android.app.UiModeManager
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
 import android.location.Address
 import android.location.Geocoder
 import android.location.Location
 import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -47,18 +42,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
@@ -73,7 +64,6 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -91,6 +81,7 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import java.util.concurrent.TimeUnit
 
 sealed class BottomNavItem(val route: String, val icon: ImageVector, val label: String) {
     data object Map : BottomNavItem("mapPage", Icons.Default.Home, "Map")
@@ -235,16 +226,37 @@ fun placeMarker(location: LatLng, title: String) {
     )
 }
 
+fun calculateDistance(point1: LatLng, point2: LatLng): Double {
+    val earthRadius = 6371.0 // Radius of the Earth in kilometers
+    val latDiff = Math.toRadians(point2.latitude - point1.latitude)
+    val lngDiff = Math.toRadians(point2.longitude - point1.longitude)
+    val a = Math.sin(latDiff / 2) * Math.sin(latDiff / 2) +
+            Math.cos(Math.toRadians(point1.latitude)) * Math.cos(Math.toRadians(point2.latitude)) *
+            Math.sin(lngDiff / 2) * Math.sin(lngDiff / 2)
+    val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return earthRadius * c
+}
+
 @Composable
 fun RunControlButton(
     isRunActive: MutableState<Boolean>,
     startedRunningFlag: MutableState<Boolean>,
+    currentLocation: MutableState<LatLng?>,
     locationPoints: SnapshotStateList<LatLng>,
     segments: SnapshotStateList<Segment>,
     onButtonClick: () -> Unit
 ) {
     val buttonText = if (isRunActive.value) "Pause Run" else "Start Run"
+    var time by remember { mutableStateOf(0L) }
+    var isRunning by remember { mutableStateOf(false) }
+    var startTime by remember { mutableStateOf(0L) }
+    var totalPausedTime by remember { mutableStateOf(0L) }
+    var totalDistance by remember { mutableStateOf(0.0) }
+    var totalDistancePaused by remember { mutableStateOf(0.0) }
+    var lastPoint = if (locationPoints.isNotEmpty()) locationPoints.last() else LatLng(0.0, 0.0)
 
+
+    val context = LocalContext.current
     Button(
         onClick = {
             if(!startedRunningFlag.value) {
@@ -265,6 +277,16 @@ fun RunControlButton(
             onButtonClick()
             isRunActive.value = !isRunActive.value
 
+            if (isRunActive.value) {
+                startTime = System.currentTimeMillis() - totalPausedTime
+                totalDistance -= totalDistancePaused
+                lastPoint = locationPoints.last()
+
+            } else {
+                totalPausedTime += System.currentTimeMillis() - startTime
+                totalDistancePaused += calculateDistance(lastPoint, currentLocation.value!!)
+
+            }
         },
         modifier = Modifier
             .fillMaxWidth()
@@ -272,8 +294,49 @@ fun RunControlButton(
     ) {
         Text(text = buttonText)
     }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(59.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = FormatTime(time),
+            modifier = Modifier
+                .background(Color.LightGray) // Add background
+                .border(2.dp, Color.Black) // Add border
+                .padding(4.dp) // Add padding for better visual effect
+        )
+        Text(
+            text = "${"%.2f".format(totalDistance)} km",
+            modifier = Modifier
+                .background(Color.LightGray) // Add background
+                .border(2.dp, Color.Black) // Add border
+                .padding(4.dp) // Add padding for better visual effect
+        )
+    }
+
+
+    if(isRunActive.value) {
+        if(!isRunning) {
+            isRunning = true
+            startTime = System.currentTimeMillis()
+        }
+        time = System.currentTimeMillis() - startTime + totalPausedTime
+    } else {
+        isRunning = false
+    }
 }
 
+@Composable
+fun FormatTime(time: Long): String {
+    val miliseconds = time % 1000
+    val seconds = TimeUnit.MILLISECONDS.toSeconds(time) % 60
+    val minutes = TimeUnit.MILLISECONDS.toMinutes(time) % 60
+
+   return String.format("%02d:%02d:%03d", minutes, seconds, miliseconds)
+}
 @SuppressLint("MissingPermission")
 fun getCurrentLocationAndTrack(
     fusedLocationClient: FusedLocationProviderClient,
@@ -645,6 +708,7 @@ fun MapScreen(
                 startedRunningFlag = startedRunningFlag,
                 locationPoints = locationPoints,
                 segments = segments,
+                currentLocation = currentLocation,
                 onButtonClick = {}
             )
 
