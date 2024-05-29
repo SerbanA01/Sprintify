@@ -251,9 +251,9 @@ fun RunControlButton(
     var isRunning by remember { mutableStateOf(false) }
     var startTime by remember { mutableStateOf(0L) }
     var totalPausedTime by remember { mutableStateOf(0L) }
-    var totalDistance by remember { mutableStateOf(0.0) }
-    var totalDistancePaused by remember { mutableStateOf(0.0) }
-    var lastPoint = if (locationPoints.isNotEmpty()) locationPoints.last() else LatLng(0.0, 0.0)
+    //var totalDistance by remember { mutableStateOf(0.0) }
+    //var totalDistancePaused by remember { mutableStateOf(0.0) }
+    //var lastPoint = if (locationPoints.isNotEmpty()) locationPoints.last() else LatLng(0.0, 0.0)
 
 
     val context = LocalContext.current
@@ -279,12 +279,12 @@ fun RunControlButton(
 
             if (isRunActive.value) {
                 startTime = System.currentTimeMillis() - totalPausedTime
-                totalDistance -= totalDistancePaused
-                lastPoint = locationPoints.last()
+//                totalDistance -= totalDistancePaused
+//                lastPoint = locationPoints.last()
 
             } else {
                 totalPausedTime += System.currentTimeMillis() - startTime
-                totalDistancePaused += calculateDistance(lastPoint, currentLocation.value!!)
+                //totalDistancePaused += calculateDistance(lastPoint, currentLocation.value!!)
 
             }
         },
@@ -308,13 +308,13 @@ fun RunControlButton(
                 .border(2.dp, Color.Black) // Add border
                 .padding(4.dp) // Add padding for better visual effect
         )
-        Text(
-            text = "${"%.3f".format(totalDistance)} km",
-            modifier = Modifier
-                .background(Color.LightGray) // Add background
-                .border(2.dp, Color.Black) // Add border
-                .padding(4.dp) // Add padding for better visual effect
-        )
+//        Text(
+//            text = "${"%.3f".format(totalDistance)} km",
+//            modifier = Modifier
+//                .background(Color.LightGray) // Add background
+//                .border(2.dp, Color.Black) // Add border
+//                .padding(4.dp) // Add padding for better visual effect
+//        )
     }
 
 
