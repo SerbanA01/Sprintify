@@ -274,7 +274,8 @@ fun RunControlButton(
     var showDialog by remember { mutableStateOf(false) }
     var selectedRating by remember { mutableStateOf(0) }
     val context = LocalContext.current
-    //add here the code for run saving
+    // add max distance so we can fix the bug where distance is not calculated correctly
+    var maxdistance by remember { mutableStateOf(0.0) }
     val userId = SessionManager(context).getsharedPreferences().getString(SessionManager.KEY_USER_ID, "N/A")!!
     //logic for running on a circuit
     val circuitId = "N/A"
@@ -291,7 +292,10 @@ fun RunControlButton(
                 startTimeDb = System.currentTimeMillis()
             }
             val currentColor = if (isRunActive.value) Color.Red else Color.Blue
-
+            //calculate the max distance
+            if (totalDistance.value > maxdistance) {
+                maxdistance = totalDistance.value
+            }
             if (segments.isNotEmpty()) {
                 val lastSegment = segments.last()
                 if (lastSegment.color != currentColor) {
@@ -360,7 +364,7 @@ fun RunControlButton(
     // buton pentru a opri tracking-ul
     if (startedRunningFlag.value) {
         Column {
-            val formattedDistance = String.format("%.2f", totalDistance.value)
+            val formattedDistance = String.format("%.2f",maxdistance)
             Button(
 
                 onClick =
@@ -636,6 +640,7 @@ fun GMap(
                 color = Color.Red,
                 width = 10f
             )
+            //calculam centrul rutei pentru a centra camera
             val minLat = route.minOf { it.latitude }
             val maxLat = route.maxOf { it.latitude }
             val minLng = route.minOf { it.longitude }
