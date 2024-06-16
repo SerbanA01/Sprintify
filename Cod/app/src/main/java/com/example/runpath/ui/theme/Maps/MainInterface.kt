@@ -2,6 +2,8 @@ package com.example.runpath.ui.theme.Maps
 
 import CircuitsPage
 import RunPage
+import RunsMap
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.UiModeManager
 import android.content.Context
@@ -59,8 +61,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.runpath.R
+import com.example.runpath.database.CircuitDAO
 import com.example.runpath.database.RunDAO
 import com.example.runpath.database.SessionManager
+import com.example.runpath.models.Circuit
 import com.example.runpath.models.Run
 import com.example.runpath.others.MyLatLng
 import CommunityPage
@@ -72,6 +76,8 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.maps.CameraUpdate
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -83,12 +89,14 @@ import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
 import com.google.maps.GeoApiContext
+import com.google.maps.android.compose.CameraPositionState
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -339,6 +347,13 @@ fun RunControlButton(
                 .border(2.dp, Color.Black) // Add border
                 .padding(4.dp) // Add padding for better visual effect
         )
+        Text(
+            text = "Pace: " + calculatePace(time, totalDistance.value),
+            modifier = Modifier
+                .background(Color.LightGray)
+                .border(2.dp, Color.Black)
+                .padding(4.dp)
+        )
     }
 
 
@@ -404,7 +419,16 @@ fun RunControlButton(
 
 }
 
+// Function for printing the pace of the run
+fun calculatePace(timeMillis: Long, distanceKm: Double): String {
+    val timeSeconds = TimeUnit.MILLISECONDS.toSeconds(timeMillis)
+    val paceInSecondsPerKm = timeSeconds / distanceKm
+    val minutes = (paceInSecondsPerKm / 60).toInt()
+    val seconds = (paceInSecondsPerKm % 60).toInt()
+    return String.format("%d'%02d''", minutes, seconds)
+}
 
+// Function for formatting the time (minutes : seconds : milliseconds)
 fun FormatTime(time: Long): String {
     val miliseconds = time % 1000
     val seconds = TimeUnit.MILLISECONDS.toSeconds(time) % 60
@@ -412,6 +436,7 @@ fun FormatTime(time: Long): String {
 
     return String.format("%02d:%02d:%03d", minutes, seconds, miliseconds)
 }
+
 fun FormatTime2(time: Long): String {
     val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     return sdf.format(Date(time))
@@ -499,53 +524,19 @@ fun placeMarkerOnMap(location: LatLng, title: String) {
 
 // functie pentru a afisa harta
 @Composable
-fun GMap(
+fun  GMap(
     currentLocation: MutableState<LatLng?>,
     searchedLocation: MutableState<LatLng?>,
-    cameraPosition: MutableState<LatLng?>,
+    cameraPositionState: CameraPositionState,
     locationPoints: SnapshotStateList<LatLng>,
     segments: SnapshotStateList<Segment>,
     startedRunningFlag: MutableState<Boolean>,
-    cameraTilt: MutableState<Float>,
     route: List<LatLng>?
 ) {
-    /*val cameraPositionState = rememberCameraPositionState().apply {
-        val initialLocation: LatLng = if (searchedLocation.value == null) {
-            currentLocation.value ?: LatLng(
-                0.0,
-                0.0
-            ) // default este 0,0 pentru latitudine si longitudine
-        } else {
-            searchedLocation.value!!
-        }
-        position = CameraPosition.builder()
-            .target(initialLocation)
-            .zoom(15f)
-            .tilt(cameraTilt.value) // setez inclinatia camerei
-            .build()
-    }*/
-    val cameraPositionState = rememberCameraPositionState()
-
     // creez un nou obiect MapsActivity
     val mapsActivity = MapsActivity()
     val routePoints = remember { mutableStateOf(listOf<LatLng>()) }
     val thresholdDistance = 0.025
-    // efect pentru a actualiza cameraPosition
-
-    LaunchedEffect(currentLocation.value) {
-        val previousLocation = cameraPosition.value
-        val newLocation = currentLocation.value
-
-        if (previousLocation != null && newLocation != null) {
-            if (calculateDistance(previousLocation, newLocation) > thresholdDistance) {
-                cameraPositionState.position = CameraPosition.fromLatLngZoom(newLocation, 15f)
-                cameraPosition.value = newLocation
-            }
-        } else if (newLocation != null) {
-            cameraPositionState.position = CameraPosition.fromLatLngZoom(newLocation, 15f)
-            cameraPosition.value = newLocation
-        }
-    }
 
     LaunchedEffect(
         key1 = currentLocation.value,
@@ -558,21 +549,38 @@ fun GMap(
         }
     }
 
-    LaunchedEffect(key1 = cameraTilt.value) {
-        if(cameraTilt.value != cameraPositionState.position.tilt && currentLocation.value != null) {
-            cameraPositionState.position = CameraPosition.builder()
-                .target(currentLocation.value!!)
-                .zoom(15f)
-                .tilt(cameraTilt.value)
-                .build()
-        }
-    }
-
-    LaunchedEffect(cameraPosition.value) {
-        cameraPosition.value?.let {
-            cameraPositionState.position = CameraPosition.fromLatLngZoom(it, 15f)
-        }
-    }
+//    val cameraPositionState = rememberCameraPositionState()
+//    LaunchedEffect(currentLocation.value) {
+//        val previousLocation = cameraPosition.value
+//        val newLocation = currentLocation.value
+//
+//        if (previousLocation != null && newLocation != null) {
+//            if (calculateDistance(previousLocation, newLocation) > thresholdDistance) {
+//                cameraPositionState.position = CameraPosition.fromLatLngZoom(newLocation, 15f)
+//                cameraPosition.value = newLocation
+//            }
+//        } else if (newLocation != null) {
+//            cameraPositionState.position = CameraPosition.fromLatLngZoom(newLocation, 15f)
+//            cameraPosition.value = newLocation
+//        }
+//    }
+//
+//
+//    LaunchedEffect(key1 = cameraTilt.value) {
+//        if(cameraTilt.value != cameraPositionState.position.tilt && currentLocation.value != null) {
+//            cameraPositionState.position = CameraPosition.builder()
+//                .target(currentLocation.value!!)
+//                .zoom(15f)
+//                .tilt(cameraTilt.value)
+//                .build()
+//        }
+//    }
+//
+//    LaunchedEffect(cameraPosition.value) {
+//        cameraPosition.value?.let {
+//            cameraPositionState.position = CameraPosition.fromLatLngZoom(it, 15f)
+//        }
+//    }
 
     val context = LocalContext.current
     val uiModeManager = context.getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
@@ -789,6 +797,7 @@ fun TiltButton(cameraTilt: MutableState<Float>) {
 }
 
 // ecranul pentru harta
+@SuppressLint("MissingPermission")
 @Composable
 fun MapScreen(
     currentLocation: MutableState<LatLng?>,
@@ -796,27 +805,77 @@ fun MapScreen(
     placesClient: PlacesClient,
     route: List<LatLng>? = null
 ) {
+
     val context = LocalContext.current
     val contextMap = GeoApiContext.Builder()
         .apiKey("AIzaSyBcDs0jQqyNyk9d1gSpk0ruLgvbd9pwZrU")
         .build()
 
+    // Location tracker
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
+    // Lists for the location points and the segments that
+    // make up the polyline
     val locationPoints = remember { mutableStateListOf<LatLng>() }
     val segments = remember { mutableStateListOf<Segment>() }
+
+    // Flag for run activation
     val isRunActive = remember { mutableStateOf(false) }
 
-    //camera position
-    val currentSegmentId = remember { mutableIntStateOf(0) }
+    // Camera position
     val cameraPosition = remember { mutableStateOf<LatLng?>(null) }
 
-    //tilt
+    // Camera tilt
     val cameraTilt = remember { mutableStateOf(0f) } // inclinarea initila este 0
 
+    // Flag for when the run is started (distinguishes between run started / run paused)
     val startedRunningFlag = remember { mutableStateOf(false) }
 
     val totalDistance = remember { mutableStateOf(0.0) }
+
+    // Initialize the singleton class OrientationListener
+    OrientationListener.initialize(context)
+
+    val cameraPositionState = rememberCameraPositionState()
+
+    // Variable for the current bearing of the camera
+    var currentBearing by remember {mutableStateOf(0f)}
+
+    fun animateCameraPosition(
+        currentLatLng: LatLng,
+        currentBearing: Float,
+        targetLatLng: LatLng,
+        targetBearing: Float,
+        tilt: Float,
+        zoom: Float,
+        duration: Long = 1000 // Animation duration in milliseconds
+    ) {
+        val startLatLng = currentLatLng
+        val startBearing = currentBearing
+
+        val animator = ValueAnimator.ofFloat(0f, 1f)
+        animator.duration = duration
+        animator.addUpdateListener { animation ->
+            val fraction = animation.animatedValue as Float
+
+            val interpolatedLatLng = LatLng(
+                OrientationListener.lerp(startLatLng.latitude.toFloat(), targetLatLng.latitude.toFloat(), fraction).toDouble(),
+                OrientationListener.lerp(startLatLng.longitude.toFloat(), targetLatLng.longitude.toFloat(), fraction).toDouble()
+            )
+            val interpolatedBearing = OrientationListener.adjustAngle(startBearing, targetBearing, fraction)
+
+            val cameraPosition = CameraPosition.Builder()
+                .target(interpolatedLatLng)
+                .bearing(interpolatedBearing)
+                .tilt(tilt)
+                .zoom(zoom)
+                .build()
+
+            cameraPositionState.position = cameraPosition
+        }
+        animator.start()
+    }
+   
     RequestLocationPermission(
         onPermissionGranted = {
             getCurrentLocation(fusedLocationClient) { location ->
@@ -842,6 +901,28 @@ fun MapScreen(
         }
     )
 
+    // Camera update logic
+    LaunchedEffect(currentLocation.value, OrientationListener.getAzimuth(), cameraTilt.value) {
+        val location = currentLocation.value
+        location?.let {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                val bearing = location?.bearing ?: OrientationListener.getAzimuth()
+//                val smoothedBearing = orientationListener.lowPassFilter(bearing, currentBearing, 0.75f)
+//                currentBearing = smoothedBearing
+
+                val targetLatLng = LatLng(location.latitude, location.longitude)
+                animateCameraPosition(
+                    currentLatLng = LatLng(cameraPositionState.position.target.latitude, cameraPositionState.position.target.longitude),
+                    currentBearing = cameraPositionState.position.bearing,
+                    targetLatLng = targetLatLng,
+                    targetBearing = bearing,
+                    tilt = cameraTilt.value,
+                    zoom = 15f
+                )
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -862,11 +943,10 @@ fun MapScreen(
             GMap(
                 currentLocation = currentLocation,
                 searchedLocation = searchedLocation,
-                cameraPosition = cameraPosition,
+                cameraPositionState = cameraPositionState,
                 locationPoints = locationPoints,
                 segments = segments,
                 startedRunningFlag = startedRunningFlag,
-                cameraTilt = cameraTilt,
                 route = route
             )
 
@@ -941,7 +1021,20 @@ fun NavigationHost(navController: NavHostController) {
                 val latLng = it.split(",")
                 LatLng(latLng[0].toDouble(), latLng[1].toDouble())
             }
-            MapScreen(currentLocation, searchedLocation, placesClient,route)
+            if (route != null) {
+                RunsMap(
+                    initialRoute = route,
+                    onRouteCompleted = {
+                        // Define what should happen when the route is completed
+                        // For example, navigate back or show a message
+                    }
+                )
+            }
+            else{
+                MapScreen(currentLocation, searchedLocation, placesClient)
+                println("ERROR: Route is null")
+
+            }
         }
         //redirect to map screen with the poluline drawn from the previous run
         composable("previous_run/route={route}") { backStackEntry ->
@@ -950,7 +1043,20 @@ fun NavigationHost(navController: NavHostController) {
                 val latLng = it.split(",")
                 LatLng(latLng[0].toDouble(), latLng[1].toDouble())
             }
-            MapScreen(currentLocation, searchedLocation, placesClient,route)
+            if (route != null) {
+                RunsMap(
+                    initialRoute = route,
+                    onRouteCompleted = {
+                        // Define what should happen when the route is completed
+                        // For example, navigate back or show a message
+                    }
+                )
+            }
+            else{
+                MapScreen(currentLocation, searchedLocation, placesClient)
+                println("ERROR: Route is null")
+
+            }
         }
         composable(BottomNavItem.Profile.route) {
             ProfilePage(navController, sessionManager)
