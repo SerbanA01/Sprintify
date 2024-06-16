@@ -63,7 +63,7 @@ import com.example.runpath.database.RunDAO
 import com.example.runpath.database.SessionManager
 import com.example.runpath.models.Run
 import com.example.runpath.others.MyLatLng
-import com.example.runpath.ui.theme.ProfileAndCommunity.CommunityPage
+import CommunityPage
 import com.example.runpath.ui.theme.CircuitAndRun.Previous_runs
 import com.example.runpath.ui.theme.ProfileAndCommunity.ProfilePage
 import com.example.runpath.ui.theme.ProfileAndCommunity.UserProfilePage

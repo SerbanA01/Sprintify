@@ -71,14 +71,16 @@ class PostDAO {
         userId: String,
         author: String,
         timestamp: String,
-        content: String
+        content: String,
+        communityId: String
     ) {
         val post = Post(
             userId = userId,
             postId = postId,
             author = author,
             timestamp = timestamp,
-            content = content
+            content = content,
+            communityId = communityId
         )
 
         db.collection("posts")
