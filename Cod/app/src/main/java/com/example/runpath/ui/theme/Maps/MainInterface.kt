@@ -16,6 +16,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +54,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.consumeAllChanges
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -839,7 +844,13 @@ fun MapScreen(
     val cameraPositionState = rememberCameraPositionState()
 
     // Variable for the current bearing of the camera
-    var currentBearing by remember {mutableStateOf(0f)}
+    var currBearing by remember {mutableStateOf(0f)}
+
+    // Flag for user input
+    var userMovementDetected by remember { mutableStateOf(false)}
+
+    // Variable for the zoom level of the camera
+    var zoomLevel by remember { mutableFloatStateOf(15f) }
 
     fun animateCameraPosition(
         currentLatLng: LatLng,
@@ -950,7 +961,6 @@ fun MapScreen(
                 route = route
             )
 
-
             // start/pause button
             Column {
                 RunControlButton(
@@ -963,10 +973,6 @@ fun MapScreen(
                 )
 
             }
-
-
-
-
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart) // pozitioneaza butoanele in coltul din stanga jos

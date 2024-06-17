@@ -37,7 +37,7 @@ fun RunsMap(
     // Camera tilt
     val cameraTilt = remember { mutableStateOf(0f) } // initial tilt is 0
 
-    val orientationListener = remember { OrientationListener(context) }
+    OrientationListener.initialize(context)
 
     // Variable for the current bearing of the camera
     var currentBearing by remember { mutableStateOf(0f) }
@@ -59,10 +59,10 @@ fun RunsMap(
             val fraction = animation.animatedValue as Float
 
             val interpolatedLatLng = LatLng(
-                orientationListener.lerp(startLatLng.latitude.toFloat(), targetLatLng.latitude.toFloat(), fraction).toDouble(),
-                orientationListener.lerp(startLatLng.longitude.toFloat(), targetLatLng.longitude.toFloat(), fraction).toDouble()
+                OrientationListener.lerp(startLatLng.latitude.toFloat(), targetLatLng.latitude.toFloat(), fraction).toDouble(),
+                OrientationListener.lerp(startLatLng.longitude.toFloat(), targetLatLng.longitude.toFloat(), fraction).toDouble()
             )
-            val interpolatedBearing = orientationListener.adjustAngle(startBearing, targetBearing, fraction)
+            val interpolatedBearing = OrientationListener.adjustAngle(startBearing, targetBearing, fraction)
 
             val cameraPosition = CameraPosition.Builder()
                 .target(interpolatedLatLng)
@@ -75,11 +75,11 @@ fun RunsMap(
         }
         animator.start()
     }
-    LaunchedEffect(currentLocation.value, orientationListener.azimuth, cameraTilt.value) {
+    LaunchedEffect(currentLocation.value, OrientationListener.getAzimuth(), cameraTilt.value) {
         val location = currentLocation.value
         location?.let {
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                val bearing = location?.bearing ?: orientationListener.azimuth
+                val bearing = location?.bearing ?: OrientationListener.getAzimuth()
                 val targetLatLng = LatLng(location.latitude, location.longitude)
                 animateCameraPosition(
                     currentLatLng = LatLng(cameraPositionState.position.target.latitude, cameraPositionState.position.target.longitude),
